@@ -26,10 +26,9 @@ def recent_popular(day, art, cutoff_day, weeks, n_articles, k=TOP_K):
     return most_popular(day, art, cutoff_day - 7 * weeks, cutoff_day, n_articles, k)
 
 
-def repurchase(day, cust, art, cutoff_day, customers, fallback, k=TOP_K):
-    """For each customer: their most recently bought distinct articles before the
-    cutoff (most recent first), filled up to k with `fallback` (a ranked array).
-    Returns a list of k-item lists, parallel to `customers`."""
+def recent_items(day, cust, art, cutoff_day, customers, k):
+    """Each customer's most recently bought distinct articles before the cutoff
+    (most recent first, at most k). Returns a list of lists parallel to `customers`."""
     wanted = np.zeros(max(cust.max(), customers.max()) + 1, dtype=bool)
     wanted[customers] = True
     m = (day < cutoff_day) & wanted[cust]
@@ -40,7 +39,6 @@ def repurchase(day, cust, art, cutoff_day, customers, fallback, k=TOP_K):
     c, a = c[order], a[order]
     starts = np.searchsorted(c, customers, side="left")
     ends = np.searchsorted(c, customers, side="right")
-    fallback = [int(x) for x in fallback]
     out = []
     for s, e in zip(starts, ends):
         seen, rec = set(), []
@@ -51,6 +49,17 @@ def repurchase(day, cust, art, cutoff_day, customers, fallback, k=TOP_K):
                 rec.append(x)
                 if len(rec) == k:
                     break
+        out.append(rec)
+    return out
+
+
+def fill(lists, fallback, k=TOP_K):
+    """Extend each ranked list with `fallback` items (skipping duplicates) up to k items."""
+    fallback = [int(x) for x in fallback]
+    out = []
+    for rec in lists:
+        rec = list(rec)[:k]
+        seen = set(rec)
         for x in fallback:
             if len(rec) == k:
                 break
@@ -59,3 +68,10 @@ def repurchase(day, cust, art, cutoff_day, customers, fallback, k=TOP_K):
                 rec.append(x)
         out.append(rec)
     return out
+
+
+def repurchase(day, cust, art, cutoff_day, customers, fallback, k=TOP_K):
+    """For each customer: their most recently bought distinct articles before the
+    cutoff (most recent first), filled up to k with `fallback` (a ranked array).
+    Returns a list of k-item lists, parallel to `customers`."""
+    return fill(recent_items(day, cust, art, cutoff_day, customers, k), fallback, k)

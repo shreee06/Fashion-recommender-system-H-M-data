@@ -114,3 +114,39 @@ def build_eval_set(day, cust, art, sampled, target_start, target_end):
     truths = [set(map(int, x)) for x in np.split(ta, starts[1:])]
     hist = np.bincount(cust[(day < target_start) & in_sample[cust]], minlength=len(in_sample))
     return customers, truths, hist[customers]
+
+
+def per_customer_metrics(recs, truths, k=K):
+    """Per-customer AP@k, Recall@k, NDCG@k as arrays (the inputs to bootstrap CIs)."""
+    return {
+        "map@12": np.array([average_precision(r, t, k) for r, t in zip(recs, truths)]),
+        "recall@12": np.array([recall_at_k(r, t, k) for r, t in zip(recs, truths)]),
+        "ndcg@12": np.array([ndcg_at_k(r, t, k) for r, t in zip(recs, truths)]),
+    }
+
+
+def candidate_recall(recs, truths, n):
+    """Mean over customers of (relevant items within the first n distinct candidates)
+    / (number of relevant items)."""
+    return float(np.mean([recall_at_k(r, t, n) for r, t in zip(recs, truths)]))
+
+
+def bootstrap_ci(values, n_boot=1000, seed=0, alpha=0.05):
+    """Percentile bootstrap CI for the mean, resampling customers with replacement.
+    Returns (mean, lo, hi)."""
+    values = np.asarray(values, dtype=np.float64)
+    rng = np.random.default_rng(seed)
+    n = len(values)
+    means = np.empty(n_boot)
+    for b in range(n_boot):
+        means[b] = values[rng.integers(0, n, n)].mean()
+    lo, hi = np.percentile(means, [100 * alpha / 2, 100 * (1 - alpha / 2)])
+    return float(values.mean()), float(lo), float(hi)
+
+
+def paired_bootstrap(a, b, n_boot=1000, seed=0, alpha=0.05):
+    """Paired bootstrap of mean(a - b) over the same customers.
+    Returns dict with the difference, its CI, and whether the CI excludes 0."""
+    d = np.asarray(a, dtype=np.float64) - np.asarray(b, dtype=np.float64)
+    mean, lo, hi = bootstrap_ci(d, n_boot, seed, alpha)
+    return {"diff": mean, "ci_lo": lo, "ci_hi": hi, "excludes_zero": bool(lo > 0 or hi < 0)}

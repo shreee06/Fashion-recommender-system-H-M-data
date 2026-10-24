@@ -1,0 +1,11 @@
+timestamp,run,method,param,value,population,n_customers,map@12,recall@12,ndcg@12
+2026-10-24T13:25:21,20261024-132503,item_cf,k_seeds,1,all validation-week buyers,72019,0.005947,0.013284,0.009375
+2026-10-24T13:25:28,20261024-132503,item_cf,k_seeds,3,all validation-week buyers,72019,0.007031,0.016666,0.011412
+2026-10-24T13:25:34,20261024-132503,item_cf,k_seeds,5,all validation-week buyers,72019,0.006962,0.017262,0.011552
+2026-10-24T13:25:41,20261024-132503,item_cf,k_seeds,10,all validation-week buyers,72019,0.006437,0.017075,0.011121
+2026-10-24T13:25:49,20261024-132503,item_cf,k_seeds,20,all validation-week buyers,72019,0.005914,0.016118,0.010345
+2026-10-24T13:25:54,20261024-132503,repurchase+cf+pop,n_repurchase(k_seeds=3),2,all validation-week buyers,72019,0.022402,0.037774,0.030128
+2026-10-24T13:25:58,20261024-132503,repurchase+cf+pop,n_repurchase(k_seeds=3),4,all validation-week buyers,72019,0.024384,0.044756,0.033663
+2026-10-24T13:26:02,20261024-132503,repurchase+cf+pop,n_repurchase(k_seeds=3),6,all validation-week buyers,72019,0.024775,0.047525,0.034763
+2026-10-24T13:26:06,20261024-132503,repurchase+cf+pop,n_repurchase(k_seeds=3),8,all validation-week buyers,72019,0.024850,0.048614,0.035091
+2026-10-24T13:26:10,20261024-132503,repurchase+cf+pop,n_repurchase(k_seeds=3),12,all validation-week buyers,72019,0.024400,0.044791,0.033782
