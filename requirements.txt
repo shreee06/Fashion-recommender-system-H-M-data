@@ -1,5 +1,6 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
-kaggle==1.7.4.5
+kaggle==2.2.5  # needs --ignore-requires-python on py3.10; also pin kagglesdk
+kagglesdk==0.1.38
 numpy==2.2.6
 pandas==2.3.3
 plotly==7.1.0
