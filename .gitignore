@@ -1,0 +1,18 @@
+.venv/
+__pycache__/
+.env
+data/
+*.csv
+*.parquet
+*.pkl
+*.pt
+*.sqlite
+.kaggle/
+kaggle.json
+models/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# small metric files are allowed
+!evals/results/
+!evals/results/**
