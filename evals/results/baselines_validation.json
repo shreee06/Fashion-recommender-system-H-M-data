@@ -1,0 +1,162 @@
+{
+  "split": {
+    "train_start": "2018-09-20",
+    "train_end": "2020-09-08",
+    "val_start": "2020-09-09",
+    "val_end": "2020-09-15",
+    "test_start": "2020-09-16",
+    "test_end": "2020-09-22"
+  },
+  "eval_week": "validation",
+  "train_cutoff": "2020-09-09",
+  "sample": {
+    "eligible_customers_with_purchase": 1362281,
+    "sample_size_requested": 200000,
+    "sample_size_used": 200000,
+    "seed": 42,
+    "bought_in_validation_week": 10557,
+    "cold_start_share_of_evaluated": 0.0718954248366013
+  },
+  "history_window": {
+    "weeks": 26,
+    "start": "2020-03-11",
+    "note": "window for model training; popularity/repurchase baselines here use all data before the cutoff or their own stated window"
+  },
+  "catalog_size": 105542,
+  "repurchase_fallback_chosen": "repurchase+last_4w",
+  "best_baseline_by_map": "repurchase+last_4w",
+  "baselines": {
+    "popular_global": {
+      "overall": {
+        "n_customers": 10557,
+        "map@12": 0.0034697527126467302,
+        "recall@12": 0.009454661773018439,
+        "ndcg@12": 0.006503652611767563,
+        "coverage@12": 0.00011369881184741619
+      },
+      "cold_share": 0.0718954248366013,
+      "by_group": {
+        "cold": {
+          "n_customers": 759,
+          "map@12": 0.00462589854882345,
+          "recall@12": 0.013187524913480117,
+          "ndcg@12": 0.008995832962281703,
+          "coverage@12": 0.00011369881184741619
+        },
+        "warm": {
+          "n_customers": 9798,
+          "map@12": 0.0033801921197034635,
+          "recall@12": 0.009165496318475632,
+          "ndcg@12": 0.00631059638743196,
+          "coverage@12": 0.00011369881184741619
+        }
+      }
+    },
+    "popular_last_1w": {
+      "overall": {
+        "n_customers": 10557,
+        "map@12": 0.006843634811953416,
+        "recall@12": 0.021367074604836656,
+        "ndcg@12": 0.012857731176174335,
+        "coverage@12": 0.00011369881184741619
+      },
+      "cold_share": 0.0718954248366013,
+      "by_group": {
+        "cold": {
+          "n_customers": 759,
+          "map@12": 0.004542945656723183,
+          "recall@12": 0.02135944653982006,
+          "ndcg@12": 0.010977854794925858,
+          "coverage@12": 0.00011369881184741619
+        },
+        "warm": {
+          "n_customers": 9798,
+          "map@12": 0.0070218572113022355,
+          "recall@12": 0.021367665511281605,
+          "ndcg@12": 0.013003355402890764,
+          "coverage@12": 0.00011369881184741619
+        }
+      }
+    },
+    "popular_last_4w": {
+      "overall": {
+        "n_customers": 10557,
+        "map@12": 0.005761167346946586,
+        "recall@12": 0.021800258060991784,
+        "ndcg@12": 0.012069909978697361,
+        "coverage@12": 0.00011369881184741619
+      },
+      "cold_share": 0.0718954248366013,
+      "by_group": {
+        "cold": {
+          "n_customers": 759,
+          "map@12": 0.006648676678320948,
+          "recall@12": 0.022555198526085878,
+          "ndcg@12": 0.013199308362386978,
+          "coverage@12": 0.00011369881184741619
+        },
+        "warm": {
+          "n_customers": 9798,
+          "map@12": 0.005692416624093643,
+          "recall@12": 0.021741776757357733,
+          "ndcg@12": 0.011982421371510135,
+          "coverage@12": 0.00011369881184741619
+        }
+      }
+    },
+    "repurchase+last_1w": {
+      "overall": {
+        "n_customers": 10557,
+        "map@12": 0.02492635615812309,
+        "recall@12": 0.046346275880002126,
+        "ndcg@12": 0.03452224917775614,
+        "coverage@12": 0.25803945348771107
+      },
+      "cold_share": 0.0718954248366013,
+      "by_group": {
+        "cold": {
+          "n_customers": 759,
+          "map@12": 0.004542945656723183,
+          "recall@12": 0.02135944653982006,
+          "ndcg@12": 0.010977854794925858,
+          "coverage@12": 0.00011369881184741619
+        },
+        "warm": {
+          "n_customers": 9798,
+          "map@12": 0.026505352746259706,
+          "recall@12": 0.04828187533593173,
+          "ndcg@12": 0.03634611071445426,
+          "coverage@12": 0.25803945348771107
+        }
+      }
+    },
+    "repurchase+last_4w": {
+      "overall": {
+        "n_customers": 10557,
+        "map@12": 0.025052182382278344,
+        "recall@12": 0.046732474569696134,
+        "ndcg@12": 0.034721298885937286,
+        "coverage@12": 0.25803945348771107
+      },
+      "cold_share": 0.0718954248366013,
+      "by_group": {
+        "cold": {
+          "n_customers": 759,
+          "map@12": 0.006648676678320948,
+          "recall@12": 0.022555198526085878,
+          "ndcg@12": 0.013199308362386978,
+          "coverage@12": 0.00011369881184741619
+        },
+        "warm": {
+          "n_customers": 9798,
+          "map@12": 0.026477806063570815,
+          "recall@12": 0.04860536215053918,
+          "ndcg@12": 0.03638849533494471,
+          "coverage@12": 0.25803945348771107
+        }
+      }
+    }
+  },
+  "peak_rss_mb": 1685,
+  "runtime_s": 24.5
+}

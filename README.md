@@ -15,6 +15,19 @@ It is used for educational and non-commercial purposes under the competition rul
 redistribution, so no raw files or samples are committed). To reproduce this project,
 accept the competition rules on Kaggle and download the files yourself into `data/raw/`.
 
+### How to get the data
+
+1. Accept the competition rules on Kaggle (this may require phone verification).
+2. Download `articles.csv`, `customers.csv` and `transactions_train.csv` (not the
+   images) into `data/raw/`, either from the competition's Data tab or with the
+   kaggle CLI, e.g. `kaggle competitions download -c h-and-m-personalized-fashion-recommendations -f articles.csv -p data/raw`
+   (repeat for each file and unzip).
+3. Run `python scripts/convert_to_parquet.py` to write Parquet files to `data/processed/`.
+
+The kaggle CLI is a download tool only and is not in `requirements.txt`. Use a recent
+version (2.x, which needs Python 3.11 or later) with an access token. Keep the token
+in `~/.kaggle/` and never commit it.
+
 - `data/raw/`: raw Kaggle files (git-ignored, user-provided)
 - `data/processed/`: derived files produced by the scripts (git-ignored)
 

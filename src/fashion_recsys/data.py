@@ -48,3 +48,39 @@ def csv_to_parquet(src, dst, column_types, block_size=64 << 20):
             writer.write_batch(batch)
             rows += batch.num_rows
     return rows
+
+
+def load_transaction_codes(processed_dir, cache=True):
+    """Load transactions as compact integer arrays (memory-light).
+
+    Returns (day, cust, art, customer_ids, article_ids): `day` is days since epoch
+    (int32), `cust`/`art` are row positions in customers/articles parquet (int32),
+    and the id arrays map codes back to the original string ids. Only the three
+    needed columns are read, row group by row group; the codes are cached next to
+    the parquet files.
+    """
+    import numpy as np
+    import pyarrow.compute as pc
+
+    processed_dir = Path(processed_dir)
+    customer_ids = pq.read_table(processed_dir / "customers.parquet", columns=["customer_id"])["customer_id"].combine_chunks()
+    article_ids = pq.read_table(processed_dir / "articles.parquet", columns=["article_id"])["article_id"].combine_chunks()
+    cache_file = processed_dir / "transactions_codes.npz"
+    if cache and cache_file.exists():
+        z = np.load(cache_file)
+        return z["day"], z["cust"], z["art"], customer_ids, article_ids
+
+    pf = pq.ParquetFile(processed_dir / "transactions_train.parquet")
+    day, cust, art = [], [], []
+    for i in range(pf.num_row_groups):
+        t = pf.read_row_group(i, columns=["t_dat", "customer_id", "article_id"])
+        day.append(t["t_dat"].cast(pa.int32()).to_numpy())
+        for col, ids, out in (("customer_id", customer_ids, cust), ("article_id", article_ids, art)):
+            idx = pc.index_in(t[col], value_set=ids)
+            if idx.null_count:
+                raise ValueError(f"{col} values missing from the dimension table")
+            out.append(idx.to_numpy(zero_copy_only=False).astype(np.int32))
+    day, cust, art = (np.concatenate(x) for x in (day, cust, art))
+    if cache:
+        np.savez(cache_file, day=day, cust=cust, art=art)
+    return day, cust, art, customer_ids, article_ids
