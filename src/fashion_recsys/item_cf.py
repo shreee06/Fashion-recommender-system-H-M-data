@@ -16,9 +16,16 @@ class ItemCF:
         self.max_items = max_items
         self.max_neighbors = max_neighbors
 
-    def fit(self, day, cust, art, cutoff_day, n_articles, train_customers=None):
+    def fit(self, day, cust, art, cutoff_day, n_articles, train_customers=None,
+            recency_tau_weeks=None, chunk_rows=100_000):
         """Build the similarity from window purchases strictly before `cutoff_day`.
-        `train_customers` (codes) restricts the baskets used; None = everyone."""
+
+        `train_customers` (codes) restricts the baskets used; None = everyone.
+        `recency_tau_weeks`: if set, a customer's (customer, article) entry is weighted by
+        exp(-age_in_weeks / tau) where age is measured from the cutoff to the customer's
+        most recent purchase of that article; None gives binary entries.
+        The Gram matrix is accumulated over blocks of `chunk_rows` customers to bound memory."""
+        self.recency_tau_weeks = recency_tau_weeks
         self.cutoff_day = int(cutoff_day)
         self.window_start = self.cutoff_day - 7 * self.window_weeks
         self.n_articles = n_articles
@@ -40,14 +47,32 @@ class ItemCF:
         pos = self.item_pos[a]
         ok = pos >= 0
         c, pos = c[ok], pos[ok]
+        d = day[m][ok]
         _, crow = np.unique(c, return_inverse=True)
-        X = sp.csr_matrix((np.ones(len(crow), dtype=np.float32), (crow, pos)), shape=(int(crow.max()) + 1 if len(crow) else 0, len(items)))
-        X.data[:] = 1.0  # repeat purchases of the same article count once
-        C = (X.T @ X).tocsr()
-        n_i = C.diagonal()
+        n_rows = int(crow.max()) + 1 if len(crow) else 0
+        # one entry per (customer, article): keep the most recent purchase day
+        key = crow.astype(np.int64) * len(items) + pos
+        o = np.lexsort((d, key))
+        ks = key[o]
+        last = np.r_[ks[1:] != ks[:-1], True] if len(ks) else np.zeros(0, dtype=bool)
+        o = o[last]
+        crow, pos, d = crow[o], pos[o], d[o]
+        if recency_tau_weeks is None:
+            w = np.ones(len(d), dtype=np.float32)
+        else:
+            w = np.exp(-((self.cutoff_day - d) / 7.0) / recency_tau_weeks).astype(np.float32)
+        X = sp.csr_matrix((w, (crow, pos)), shape=(n_rows, len(items)))
+        C = None
+        for s0 in range(0, n_rows, chunk_rows):
+            Xc = X[s0 : s0 + chunk_rows]
+            part = (Xc.T @ Xc).tocsr()
+            C = part if C is None else C + part
+        if C is None:
+            C = sp.csr_matrix((len(items), len(items)), dtype=np.float32)
+        n_i = C.diagonal()  # sum of squared entries per article
         C.setdiag(0)
         C.eliminate_zeros()
-        inv = 1.0 / np.sqrt(np.maximum(n_i, 1))
+        inv = 1.0 / np.sqrt(np.maximum(n_i, 1e-12))
         C = sp.diags(inv) @ C @ sp.diags(inv)
         self.sim = self._prune(C.tocsr().astype(np.float32))
         self.n_train_customers = X.shape[0]
