@@ -52,7 +52,7 @@ def log_trial(run, method, param, value, population, n, m):
 class Ctx:
     """Everything a cutoff needs to generate candidates and features."""
 
-    def __init__(self, D, cutoff, tt_file):
+    def __init__(self, D, cutoff, tt_file=None, tt=None):
         d = D
         self.D, self.cutoff = d, cutoff
         cj = d["cfg"]
@@ -63,9 +63,12 @@ class Ctx:
         self.var = VariantCandidates(vc["pop_weeks"]).fit(d["day"], d["art"], cutoff, d["product_code"], d["n_art"])
         self.tops = customer_segment_popular(d["day"], d["cust"], d["art"], d["bucket"], 6, cutoff, sc["age_weeks"], d["n_art"], 100)
         self.pop4 = bl.recent_popular(d["day"], d["art"], cutoff, 4, d["n_art"], 100).tolist()
-        z = np.load(tt_file)
-        assert int(z["cutoff_day"]) == cutoff
-        self.tt_customers, self.tt_codes, self.tt_scores = z["customers"], z["codes"], z["scores"]
+        if tt is not None:  # (customers, codes, scores) computed in memory by the caller
+            self.tt_customers, self.tt_codes, self.tt_scores = tt
+        else:
+            z = np.load(tt_file)
+            assert int(z["cutoff_day"]) == cutoff
+            self.tt_customers, self.tt_codes, self.tt_scores = z["customers"], z["codes"], z["scores"]
 
     def sources(self, chunk):
         d = self.D
@@ -83,6 +86,24 @@ class Ctx:
         pcust, part, ranks, tts = build_pool(src, len(chunk), d["n_art"])
         X, a_cnt = pair_features(self.stats, d["meta"], d["day"], d["cust"], d["art"], chunk, pcust, part, ranks, tts, d["n_art"])
         return pcust, part, X, a_cnt
+
+
+def load_D():
+    """Arrays + static metadata shared by every script that builds candidates and features."""
+    day, cust, art, customer_ids, article_ids = load_transaction_codes(PROC)
+    price, chan = load_price_channel(PROC)
+    n_art, n_cust = len(article_ids), len(customer_ids)
+    split = make_split(day.min(), day.max())
+    val_start = to_day(split.val_start)
+    train_cut = val_start - 7
+    arts = pq.read_table(PROC / "articles.parquet", columns=["product_code", "product_type_no", "colour_group_code", "department_no"]).to_pandas()
+    codes = lambda c: arts[c].astype("category").cat.codes.to_numpy().astype(np.int64)
+    ages = pq.read_table(PROC / "customers.parquet", columns=["age"])["age"].to_numpy(zero_copy_only=False).astype(np.float32)
+    meta = Meta(codes("product_code"), codes("product_type_no"), codes("colour_group_code"), codes("department_no"), ages)
+    D = dict(day=day, cust=cust, art=art, price=price, chan=chan, n_art=n_art, n_cust=n_cust, meta=meta,
+             product_code=meta.product_code, bucket=age_bucket(ages), cfg=json.loads((RES / "candidates_validation.json").read_text()))
+
+    return D, split, val_start, train_cut
 
 
 def build_matrix(ctx, customers, truths):
@@ -105,18 +126,9 @@ def main():
     args = ap.parse_args()
     run = "rerank-" + datetime.now().strftime("%Y%m%d-%H%M%S")
 
-    day, cust, art, customer_ids, article_ids = load_transaction_codes(PROC)
-    price, chan = load_price_channel(PROC)
-    n_art, n_cust = len(article_ids), len(customer_ids)
-    split = make_split(day.min(), day.max())
-    val_start = to_day(split.val_start)
-    train_cut = val_start - 7
-    arts = pq.read_table(PROC / "articles.parquet", columns=["product_code", "product_type_no", "colour_group_code", "department_no"]).to_pandas()
-    codes = lambda c: arts[c].astype("category").cat.codes.to_numpy().astype(np.int64)
-    ages = pq.read_table(PROC / "customers.parquet", columns=["age"])["age"].to_numpy(zero_copy_only=False).astype(np.float32)
-    meta = Meta(codes("product_code"), codes("product_type_no"), codes("colour_group_code"), codes("department_no"), ages)
-    D = dict(day=day, cust=cust, art=art, price=price, chan=chan, n_art=n_art, n_cust=n_cust, meta=meta,
-             product_code=meta.product_code, bucket=age_bucket(ages), cfg=json.loads((RES / "candidates_validation.json").read_text()))
+    D, split, val_start, train_cut = load_D()
+    day, cust, art, price, chan = D["day"], D["cust"], D["art"], D["price"], D["chan"]
+    n_art, n_cust = D["n_art"], D["n_cust"]
 
     # ---------------- training set: customers sampled from the buyers of the training label week
     ctx_tr = Ctx(D, train_cut, PROC / "two_tower_candidates_heldout.npz")
