@@ -23,7 +23,7 @@ def test_readme_has_no_unfilled_placeholders_and_no_kaggle_rank_claim():
 
 def test_readme_screenshots_exist_and_are_small():
     text = (ROOT / "README.md").read_text()
-    for name in ("results_test.png", "results_validation_vs_test.png"):
+    for name in ("results_test.png", "results_test_recall.png", "results_test_ndcg.png", "results_validation_vs_test.png"):
         assert f"docs/images/{name}" in text
         f = ROOT / "docs" / "images" / name
         assert f.exists() and f.stat().st_size < 1_000_000

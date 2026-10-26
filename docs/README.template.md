@@ -77,6 +77,14 @@ flowchart LR
 
 *Screenshot of the local Streamlit Results page (MAP@12 view), which reads only the committed result files.*
 
+![Streamlit Results page: test-week Recall@12 per system with 95% confidence intervals, and the table of all metrics](docs/images/results_test_recall.png)
+
+*Screenshot of the local Streamlit Results page (Recall@12 view), which reads only the committed result files.*
+
+![Streamlit Results page: test-week NDCG@12 per system with 95% confidence intervals, and the table of all metrics](docs/images/results_test_ndcg.png)
+
+*Screenshot of the local Streamlit Results page (NDCG@12 view), which reads only the committed result files.*
+
 {{table:test}}
 
 Paired differences on the test week (same customers):

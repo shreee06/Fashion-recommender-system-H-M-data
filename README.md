@@ -77,6 +77,14 @@ flowchart LR
 
 *Screenshot of the local Streamlit Results page (MAP@12 view), which reads only the committed result files.*
 
+![Streamlit Results page: test-week Recall@12 per system with 95% confidence intervals, and the table of all metrics](docs/images/results_test_recall.png)
+
+*Screenshot of the local Streamlit Results page (Recall@12 view), which reads only the committed result files.*
+
+![Streamlit Results page: test-week NDCG@12 per system with 95% confidence intervals, and the table of all metrics](docs/images/results_test_ndcg.png)
+
+*Screenshot of the local Streamlit Results page (NDCG@12 view), which reads only the committed result files.*
+
 | System | MAP@12 [95% CI] | Recall@12 [95% CI] | NDCG@12 [95% CI] | Coverage@12 | Already-bought share | MAP cold | MAP warm |
 |---|---|---|---|---|---|---|---|
 | Popular, last 1 week | 0.0087 [0.0083, 0.0092] | 0.0255 [0.0246, 0.0264] | 0.0158 [0.0152, 0.0164] | 0.0001 | 0.009 | 0.0079 | 0.0088 |
