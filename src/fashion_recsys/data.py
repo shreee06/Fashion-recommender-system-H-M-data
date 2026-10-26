@@ -84,3 +84,25 @@ def load_transaction_codes(processed_dir, cache=True):
     if cache:
         np.savez(cache_file, day=day, cust=cust, art=art)
     return day, cust, art, customer_ids, article_ids
+
+
+def load_price_channel(processed_dir, cache=True):
+    """Price (float32) and sales channel (int8) of every transaction, in the same row order
+    as `load_transaction_codes` (cached next to the parquet files)."""
+    import numpy as np
+
+    processed_dir = Path(processed_dir)
+    cache_file = processed_dir / "transactions_price_channel.npz"
+    if cache and cache_file.exists():
+        z = np.load(cache_file)
+        return z["price"], z["channel"]
+    pf = pq.ParquetFile(processed_dir / "transactions_train.parquet")
+    price, chan = [], []
+    for i in range(pf.num_row_groups):
+        t = pf.read_row_group(i, columns=["price", "sales_channel_id"])
+        price.append(t["price"].to_numpy())
+        chan.append(t["sales_channel_id"].to_numpy())
+    price, chan = np.concatenate(price), np.concatenate(chan)
+    if cache:
+        np.savez(cache_file, price=price, channel=chan)
+    return price, chan
