@@ -1,0 +1,47 @@
+{
+  "n_inner_customers": 6000,
+  "n_cold": 465,
+  "cold_share": 0.0775,
+  "reranker": {
+    "cold": {
+      "map@12": 0.01582269830925745,
+      "recall@12": 0.03470643454514423,
+      "ndcg@12": 0.02439083212992916
+    },
+    "warm": {
+      "map@12": 0.03894191654607514,
+      "recall@12": 0.08228572004987665,
+      "ndcg@12": 0.057779157765017526
+    },
+    "all": {
+      "map@12": 0.03715017713272178,
+      "recall@12": 0.0785983254232599,
+      "ndcg@12": 0.055191562528298176
+    }
+  },
+  "fallback_age_bucket_popularity": {
+    "cold": {
+      "map@12": 0.010033644173429121,
+      "recall@12": 0.023381976446492574,
+      "ndcg@12": 0.015812568827868568
+    },
+    "warm": {
+      "map@12": 0.00901735024305923,
+      "recall@12": 0.02768391850668195,
+      "ndcg@12": 0.016620916074084977
+    },
+    "all": {
+      "map@12": 0.009096113022662895,
+      "recall@12": 0.027350517997017272,
+      "ndcg@12": 0.016558269162503206
+    }
+  },
+  "rule": "fallback does not improve cold MAP@12 on the inner customers; no fallback",
+  "decision_criterion": "fallback adopted iff its cold-customer MAP@12 on the inner tuning customers exceeds the reranker's (point estimate)",
+  "fallback_adopted": false,
+  "reconstruction": {
+    "best_iteration": 45,
+    "inner_map@12": 0.03715017713272178,
+    "step7_logged_inner_map@12": 0.03715
+  }
+}
