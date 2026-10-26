@@ -4,7 +4,7 @@
   "n_evaluated": 72019,
   "n_cold": 5395,
   "cold_start_share": 0.07491078743109457,
-  "cold_fallback_applied_in_secondary": false,
+  "cold_fallback_applied": false,
   "catalogue_size": 50641,
   "bootstrap": {
     "resamples": 1000,
@@ -111,32 +111,7 @@
       "ndcg@12_cold": 0.008776430196897651,
       "ndcg@12_warm": 0.01920413767639319
     },
-    "reranker (primary)": {
-      "coverage@12": 0.12728581986318244,
-      "already_bought_share": 0.22275256066686105,
-      "map@12": {
-        "mean": 0.03365285467863851,
-        "ci_lo": 0.03268945699345246,
-        "ci_hi": 0.03462592944353204
-      },
-      "map@12_cold": 0.005046919536475162,
-      "map@12_warm": 0.035969272487415695,
-      "recall@12": {
-        "mean": 0.07242848081803077,
-        "ci_lo": 0.07092448975930514,
-        "ci_hi": 0.07402442802965103
-      },
-      "recall@12_cold": 0.023954291803623365,
-      "recall@12_warm": 0.07635376674701624,
-      "ndcg@12": {
-        "mean": 0.05035725772578893,
-        "ci_lo": 0.04924756184600253,
-        "ci_hi": 0.05151121063872063
-      },
-      "ndcg@12_cold": 0.01158280560248777,
-      "ndcg@12_warm": 0.05349708975636665
-    },
-    "reranker + cold fallback (secondary)": {
+    "reranker": {
       "coverage@12": 0.12728581986318244,
       "already_bought_share": 0.22275256066686105,
       "map@12": {
@@ -163,7 +138,7 @@
     }
   },
   "paired": {
-    "reranker (primary) - combination_step5": {
+    "reranker - combination_step5": {
       "map@12": {
         "diff": 0.007562206348513806,
         "ci_lo": 0.006905069787498719,
@@ -183,7 +158,7 @@
         "excludes_zero": true
       }
     },
-    "reranker (primary) - repurchase+last_4w": {
+    "reranker - repurchase+last_4w": {
       "map@12": {
         "diff": 0.00943021194991597,
         "ci_lo": 0.00875884792569515,
@@ -202,27 +177,31 @@
         "ci_hi": 0.017602027638212663,
         "excludes_zero": true
       }
-    },
-    "reranker + cold fallback (secondary) - reranker (primary)": {
-      "map@12": {
-        "diff": 0.0,
-        "ci_lo": 0.0,
-        "ci_hi": 0.0,
-        "excludes_zero": false
-      },
-      "recall@12": {
-        "diff": 0.0,
-        "ci_lo": 0.0,
-        "ci_hi": 0.0,
-        "excludes_zero": false
-      },
-      "ndcg@12": {
-        "diff": 0.0,
-        "ci_lo": 0.0,
-        "ci_hi": 0.0,
-        "excludes_zero": false
-      }
     }
   },
-  "note": "dry run of the final-evaluation code path on the VALIDATION week with the frozen models"
+  "reproduction_check": {
+    "repurchase+last_4w": {
+      "dry_run": 0.024222642728722536,
+      "expected": 0.024223,
+      "diff": -3.572712774652098e-07
+    },
+    "combination_step5": {
+      "dry_run": 0.026090648330124696,
+      "expected": 0.026091,
+      "diff": -3.516698753036618e-07
+    },
+    "two_tower_alone": {
+      "dry_run": 0.010596662227261083,
+      "expected": 0.010597,
+      "diff": -3.377727389175522e-07
+    },
+    "reranker": {
+      "dry_run": 0.03365285467863851,
+      "expected": 0.033653,
+      "diff": -1.4532136149297825e-07
+    }
+  },
+  "note": "dry run of the final-evaluation code path on the VALIDATION week with the frozen models; no test-week row is loaded",
+  "peak_rss_mb": 2857,
+  "runtime_s": 147.4
 }

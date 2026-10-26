@@ -7,8 +7,10 @@
   rule (evals/results/cold_fallback_decision.json).
 * Candidates and features use only transactions before the cutoff; the test week is read only to
   build the relevance labels.
-* `--eval-week validation` runs the identical code path on the validation week (a dry run to check the
-  pipeline against the Step 7 numbers; it writes evals/results/validation_reference.json).
+* `--dry-run-on-validation` runs the identical pipeline with cutoff 2020-09-09 and labels from the validation
+  week. It drops every transaction on or after 2020-09-16 right after loading, never writes
+  test_run_record.json, and writes evals/results/validation_reference.json. It is also checked against the
+  validation numbers of the earlier steps (stops with an error if any differ by more than 0.0003).
 """
 import argparse
 import hashlib
@@ -30,6 +32,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from fashion_recsys import baselines as bl  # noqa: E402
 from fashion_recsys.config import to_day  # noqa: E402
+from fashion_recsys.memguard import MemGuard  # noqa: E402
 from fashion_recsys.evaluation import bootstrap_ci, build_eval_set, paired_bootstrap, per_customer_metrics  # noqa: E402
 from fashion_recsys.reranker import labels_for, top_k_per_customer  # noqa: E402
 from fashion_recsys.two_tower import TwoTower, build_examples, retrieve  # noqa: E402
@@ -39,8 +42,10 @@ from run_reranker import CHUNK, PROC, RES, Ctx, load_D, say  # noqa: E402
 
 RECORD = RES / "test_run_record.json"
 PROTOCOL = RES / "test_protocol.md"
-SYSTEMS = ["popular_last_1w", "repurchase+last_4w", "combination_step5", "two_tower_alone",
-           "reranker (primary)", "reranker + cold fallback (secondary)"]
+SYSTEMS = ["popular_last_1w", "repurchase+last_4w", "combination_step5", "two_tower_alone", "reranker"]
+# validation MAP@12 of the earlier steps (dry-run reproduction check), tolerance 0.0003
+EXPECTED_VAL_MAP = {"repurchase+last_4w": 0.024223, "combination_step5": 0.026091, "two_tower_alone": 0.010597, "reranker": 0.033653}
+TOL = 3e-4
 
 
 def sha(path):
@@ -73,11 +78,21 @@ def load_frozen_two_tower(D):
     return model, dict(K=int(c["K"]), tau=float(c["tau_in"]), lookback=int(c["lookback"]))
 
 
-def evaluate_week(week):
+def assert_no_test_data(D, split):
+    """Dry-run guard: no transaction on or after the first test day may be in memory."""
+    assert int(D["day"].max()) < to_day(split.test_start), "dry run must not hold any test-week transaction"
+
+
+def evaluate_week(week, guard):
     import lightgbm as lgb
 
     torch.set_num_threads(4)
-    D, split, val_start, _ = load_D()
+    guard.stage("start")
+    # dry run: every transaction on or after the first test day is dropped at load time, then proven absent
+    D, split, val_start, _ = load_D(truncate_before="test_start" if week == "validation" else None)
+    if week == "validation":
+        assert_no_test_data(D, split)
+    guard.stage("data loaded")
     day, cust, art, n_art, n_cust = D["day"], D["cust"], D["art"], D["n_art"], D["n_cust"]
     cutoff, end = (to_day(split.test_start), to_day(split.test_end)) if week == "test" else (val_start, to_day(split.val_end))
     assert end == cutoff + 6
@@ -102,8 +117,9 @@ def evaluate_week(week):
     booster = lgb.Booster(model_file=str(ROOT / "models" / "lgbm_reranker.txt"))
     meta = json.loads((ROOT / "models" / "lgbm_reranker_meta.json").read_text())
     assert booster.feature_name() == meta["features"]
-    fallback_on = json.loads((RES / "cold_fallback_decision.json").read_text())["fallback_adopted"]
+    assert json.loads((RES / "cold_fallback_decision.json").read_text())["fallback_adopted"] is False, "frozen rule: no cold-start fallback"
     cj = D["cfg"]["combination"]
+    guard.stage("sources, frozen models and two-tower candidates ready")
 
     per = {s: {k: [] for k in METRICS} for s in SYSTEMS}
     lists_all = {s: [] for s in SYSTEMS}
@@ -114,13 +130,9 @@ def evaluate_week(week):
         pcust, part, X, _ = ctx.pool_features(chunk, src)
         primary = top_k_per_customer(pcust, part, booster.predict(X, num_iteration=meta["best_iteration"]), len(chunk), 12)
         comb = combine(src["recent"], {"cf": src["cf"], "var": src["var"], "segage": src["agepop"]}, cj["order"], cj["caps"], cj["n_repurchase"], ctx.pop4)
-        fb = [l[:12] for l in src["agepop"]]
-        for i in np.flatnonzero(cold_c):
-            assert fb[i] == comb[i], "cold Step 5 list must equal the age-bucket list"
-        secondary = [fb[i] if (fallback_on and cold_c[i]) else primary[i] for i in range(len(chunk))]
         lists = {"popular_last_1w": [pop1[:12]] * len(chunk), "repurchase+last_4w": bl.fill(src["recent"], ctx.pop4, 12),
                  "combination_step5": comb, "two_tower_alone": src["tt"][:, :12].tolist(),
-                 "reranker (primary)": primary, "reranker + cold fallback (secondary)": secondary}
+                 "reranker": primary}
         n_pre = ctx.stats.n_pre
         row_of = np.full(n_cust, -1, dtype=np.int64)
         row_of[chunk] = np.arange(len(chunk))
@@ -137,7 +149,7 @@ def evaluate_week(week):
             for k in METRICS:
                 per[sname][k].append(p[k])
             lists_all[sname] += ls
-        say(f"  chunk {s0 // CHUNK + 1}/{-(-n_eval // CHUNK)}")
+        guard.stage(f"chunk {s0 // CHUNK + 1}/{-(-n_eval // CHUNK)}")
     per = {s: {k: np.concatenate(v) for k, v in d.items()} for s, d in per.items()}
 
     table = {}
@@ -148,26 +160,38 @@ def evaluate_week(week):
             r[k] = {"mean": mean, "ci_lo": lo, "ci_hi": hi}
             r[k + "_cold"], r[k + "_warm"] = float(per[sname][k][cold].mean()), float(per[sname][k][~cold].mean())
         table[sname] = r
-    P, S = "reranker (primary)", "reranker + cold fallback (secondary)"
-    pairs = [(P, "combination_step5"), (P, "repurchase+last_4w"), (S, P)]
+    pairs = [("reranker", "combination_step5"), ("reranker", "repurchase+last_4w")]
     paired = {f"{a} - {b}": {k: paired_bootstrap(per[a][k], per[b][k], N_BOOT, BOOT_SEED) for k in METRICS} for a, b in pairs}
     return {"week": week, "cutoff_day": int(cutoff), "n_evaluated": n_eval, "n_cold": int(cold.sum()), "cold_start_share": float(cold.mean()),
-            "cold_fallback_applied_in_secondary": bool(fallback_on), "catalogue_size": int(len(catalog)),
+            "cold_fallback_applied": False, "catalogue_size": int(len(catalog)),
             "bootstrap": {"resamples": N_BOOT, "seed": BOOT_SEED}, "results": table, "paired": paired}
 
 
-def main():
+def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--i-am-done-tuning", action="store_true", help="required for the test week: confirms tuning is finished")
-    ap.add_argument("--eval-week", choices=["test", "validation"], default="test")
-    args = ap.parse_args()
+    ap.add_argument("--dry-run-on-validation", action="store_true",
+                    help="run the identical pipeline on the validation week (test-week rows are dropped at load time)")
+    args = ap.parse_args(argv)
     t0 = time.time()
 
-    if args.eval_week == "validation":
-        out = evaluate_week("validation")
-        out["note"] = "dry run of the final-evaluation code path on the VALIDATION week with the frozen models"
+    if args.dry_run_on_validation:
+        guard = MemGuard(PROC / "dryrun_memory.log")
+        guard.start_watchdog()
+        out = evaluate_week("validation", guard)
+        check = {}
+        for name, want in EXPECTED_VAL_MAP.items():
+            got = out["results"][name]["map@12"]["mean"]
+            check[name] = {"dry_run": got, "expected": want, "diff": got - want}
+            if abs(got - want) > TOL:
+                print(f"STOP: {name} validation MAP@12 {got:.6f} differs from {want:.6f} by {got - want:+.6f} (> {TOL})", flush=True)
+                sys.exit(1)
+        out["reproduction_check"] = check
+        out["note"] = "dry run of the final-evaluation code path on the VALIDATION week with the frozen models; no test-week row is loaded"
+        out["peak_rss_mb"], out["runtime_s"] = guard.peak_mb(), round(time.time() - t0, 1)
         (RES / "validation_reference.json").write_text(json.dumps(out, indent=2) + "\n")
-        say("wrote validation_reference.json", {s: round(r["map@12"]["mean"], 4) for s, r in out["results"].items()})
+        guard.stage("dry run complete")
+        say("dry run reproduces the earlier validation numbers:", {k: f"{v['dry_run']:.6f} (diff {v['diff']:+.6f})" for k, v in check.items()})
         return
 
     if not args.i_am_done_tuning:
@@ -180,9 +204,11 @@ def main():
               "timestamp": datetime.now().isoformat(timespec="seconds"), "protocol_sha256": sha(PROTOCOL),
               "two_tower_sha256": sha(ROOT / "models" / "two_tower_best.pt"), "lgbm_sha256": sha(ROOT / "models" / "lgbm_reranker.txt")}
     RECORD.write_text(json.dumps(record, indent=2) + "\n")  # written BEFORE the test labels are read
-    out = evaluate_week("test")
+    guard = MemGuard(PROC / "test_run_memory.log")
+    guard.start_watchdog()
+    out = evaluate_week("test", guard)
     out["run_record"] = record
-    out["peak_rss_mb"] = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss // 1024
+    out["peak_rss_mb"] = guard.peak_mb()
     out["runtime_s"] = round(time.time() - t0, 1)
     (RES / "test_final.json").write_text(json.dumps(out, indent=2) + "\n")
     record.update(status="completed", result_sha256=sha(RES / "test_final.json"))

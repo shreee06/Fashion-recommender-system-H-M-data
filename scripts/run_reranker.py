@@ -88,14 +88,24 @@ class Ctx:
         return pcust, part, X, a_cnt
 
 
-def load_D():
-    """Arrays + static metadata shared by every script that builds candidates and features."""
+def load_D(truncate_before=None):
+    """Arrays + static metadata shared by every script that builds candidates and features.
+
+    The split dates come from the full data range (only the first/last day are looked at); if
+    `truncate_before` (a day number, or "test_start") is given, every transaction on or after it is dropped
+    immediately, so nothing downstream can read it (used by the final-test dry run)."""
     day, cust, art, customer_ids, article_ids = load_transaction_codes(PROC)
     price, chan = load_price_channel(PROC)
     n_art, n_cust = len(article_ids), len(customer_ids)
     split = make_split(day.min(), day.max())
     val_start = to_day(split.val_start)
     train_cut = val_start - 7
+    if isinstance(truncate_before, str):
+        assert truncate_before == "test_start"
+        truncate_before = to_day(split.test_start)
+    if truncate_before is not None:
+        n = int(np.searchsorted(day, truncate_before, side="left"))  # day is sorted ascending
+        day, cust, art, price, chan = (a[:n].copy() for a in (day, cust, art, price, chan))
     arts = pq.read_table(PROC / "articles.parquet", columns=["product_code", "product_type_no", "colour_group_code", "department_no"]).to_pandas()
     codes = lambda c: arts[c].astype("category").cat.codes.to_numpy().astype(np.int64)
     ages = pq.read_table(PROC / "customers.parquet", columns=["age"])["age"].to_numpy(zero_copy_only=False).astype(np.float32)
