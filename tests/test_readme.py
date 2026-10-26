@@ -19,3 +19,11 @@ def test_readme_has_no_unfilled_placeholders_and_no_kaggle_rank_claim():
     text = (ROOT / "README.md").read_text()
     assert "{{" not in text and "}}" not in text
     assert "leaderboard" in text and "No Kaggle leaderboard score" in text
+
+
+def test_readme_screenshots_exist_and_are_small():
+    text = (ROOT / "README.md").read_text()
+    for name in ("results_test.png", "results_validation_vs_test.png"):
+        assert f"docs/images/{name}" in text
+        f = ROOT / "docs" / "images" / name
+        assert f.exists() and f.stat().st_size < 1_000_000

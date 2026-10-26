@@ -1,0 +1,81 @@
+{
+  "machine": {
+    "ram_mb": 7676,
+    "logical_cpus": 8,
+    "cpu_threads_used_for_training_and_inference": 4,
+    "gpu": "none (CPU only)",
+    "source": "/proc/meminfo, os.cpu_count(); torch.set_num_threads(4) in the scripts"
+  },
+  "data_scale": {
+    "rows": {
+      "articles": 105542,
+      "customers": 1371980,
+      "transactions_train": 31788324
+    },
+    "source": "parquet metadata of data/processed/*.parquet (untracked)"
+  },
+  "conversion": {
+    "csv_bytes": {
+      "articles": 36127865,
+      "customers": 207135859,
+      "transactions_train": 3488002253
+    },
+    "parquet_bytes": {
+      "articles": 4152443,
+      "customers": 88288953,
+      "transactions_train": 404416773
+    },
+    "total_csv_bytes": 3731265977,
+    "total_parquet_bytes": 496858169,
+    "transactions_reduction_pct": 88.40548991468785,
+    "total_reduction_pct": 86.68392518617817,
+    "streamed_block_size_mb": 64,
+    "parquet_compression": "zstd",
+    "source": "file sizes of data/raw/*.csv and data/processed/*.parquet (untracked); scripts/convert_to_parquet.py"
+  },
+  "memory_guard": {
+    "abort_below_mem_available_mb": 1000,
+    "feature_build_chunk_customers": 5000,
+    "source": "src/fashion_recsys/memguard.py, scripts/run_reranker.py"
+  },
+  "freeze_run": {
+    "peak_rss_mb": 2588,
+    "min_mem_available_mb": 2485,
+    "stages_logged": 14,
+    "source": "data/processed/freeze_memory.log (untracked)",
+    "note": "reconstruction of the reranker (24,000 customers, 7.7M candidate rows)"
+  },
+  "dry_run_validation": {
+    "peak_rss_mb": 2857,
+    "min_mem_available_mb": 2549,
+    "stages_logged": 19,
+    "source": "data/processed/dryrun_memory.log (untracked)",
+    "runtime_s": 147.4,
+    "reported_peak_rss_mb": 2857,
+    "customers": 72019,
+    "source_runtime": "evals/results/validation_reference.json"
+  },
+  "final_test_run": {
+    "peak_rss_mb": 2840,
+    "min_mem_available_mb": 2265,
+    "stages_logged": 17,
+    "source": "data/processed/test_run_memory.log (untracked)",
+    "runtime_s": 141.5,
+    "reported_peak_rss_mb": 2840,
+    "customers": 68984,
+    "source_runtime": "evals/results/test_final.json"
+  },
+  "two_tower_training_script": {
+    "runtime_s": 7683.6,
+    "peak_rss_mb": 4725,
+    "sec_per_epoch": 51.316961328188576,
+    "n_params": 6804136,
+    "trials": 11,
+    "source": "evals/results/two_tower_validation.json"
+  },
+  "reranker_validation_script": {
+    "runtime_s": 1081.4,
+    "peak_rss_mb": 4556,
+    "source": "evals/results/reranker_validation.json"
+  }
+}

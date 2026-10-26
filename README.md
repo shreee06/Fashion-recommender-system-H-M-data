@@ -73,6 +73,10 @@ flowchart LR
 
 ### Test week (2020-09-16 to 2020-09-22, 68,984 customers)
 
+![Streamlit Results page: test-week MAP@12 per system with 95% confidence intervals, and the table of all metrics](docs/images/results_test.png)
+
+*Screenshot of the local Streamlit Results page (MAP@12 view), which reads only the committed result files.*
+
 | System | MAP@12 [95% CI] | Recall@12 [95% CI] | NDCG@12 [95% CI] | Coverage@12 | Already-bought share | MAP cold | MAP warm |
 |---|---|---|---|---|---|---|---|
 | Popular, last 1 week | 0.0087 [0.0083, 0.0092] | 0.0255 [0.0246, 0.0264] | 0.0158 [0.0152, 0.0164] | 0.0001 | 0.009 | 0.0079 | 0.0088 |
@@ -95,6 +99,10 @@ Paired differences on the test week (same customers):
 ### Validation vs test
 
 The same frozen code and models, once on the validation week (72,019 customers) and once on the test week.
+
+![Streamlit Results page: validation vs test MAP@12 per system, with the validation-vs-test table](docs/images/results_validation_vs_test.png)
+
+*Screenshot of the local Streamlit Results page (validation vs test, MAP@12 view), which reads only the committed result files.*
 
 | System | Metric | Validation | Test | Change | Test CI contains validation value |
 |---|---|---|---|---|---|
@@ -184,6 +192,27 @@ Hyperparameter and design trials that were logged:
 | two_tower_final | 3 |
 | variants | 5 |
 
+## Engineering and scale
+
+The whole pipeline, from 31,788,324 raw transactions to the frozen test evaluation, runs on a single laptop (CPU only, 7,676 MB of RAM,
+8 logical CPUs, 4 threads used). It is a large-dataset-on-one-machine design, not distributed infrastructure. Figures below are copied from the
+real run logs into `evals/results/runtime_memory.json`.
+
+- **Data size and Parquet conversion.** 31,788,324 transactions, 1,371,980 customers, 105,542 articles. The raw CSVs total 3.73 GB
+  (transactions alone 3.49 GB); the Parquet files total 497 MB (transactions 404 MB), a reduction of 86.7%
+  overall and 88.4% for the transactions table.
+- **Streamed conversion.** `scripts/convert_to_parquet.py` reads the CSV in 64 MB blocks with explicit dtypes (article ids stay strings so leading zeros survive)
+  and writes zstd-compressed Parquet block by block, so the raw transactions file is never loaded whole.
+- **Compact in-memory data.** Transactions are held as integer-coded arrays (day, customer code, article code) instead of strings, and only the columns a stage needs are loaded.
+- **Memory-lean feature building.** Candidates and features are built in chunks of 5,000 customers; the freeze script writes them into preallocated float32 matrices, builds the LightGBM datasets
+  straight from numpy arrays, and frees intermediates between stages. Reconstructing the reranker (7.7M candidate rows) peaked at 2,588 MB.
+- **Memory watchdog.** The freeze and final-test scripts log memory per stage and exit without writing results if available memory drops below about 1,000 MB.
+  The lowest available memory seen during the recorded runs was 2,485 MB (freeze) and 2,265 MB (final test run).
+- **CPU-only training.** The 6,804,136-parameter two-tower model trains at about 51 s per epoch; the full tuning script (11 training runs covering tuning and the two ablations, plus the
+  evaluation) took about 2.1 hours with a peak of 4,725 MB. The reranker validation script took about 18 minutes (peak 4,556 MB).
+- **Evaluation cost.** The final test evaluation over 68,984 customers took 142 s with a peak of 2,840 MB; the identical dry run on the validation week
+  took 147 s (peak 2,857 MB).
+
 ## Limitations
 
 - **Cold-start customers are served worse.** On the test week the reranker's MAP@12 for customers with no history is far below its warm-customer value
@@ -217,7 +246,7 @@ python scripts/run_reranker.py               # LightGBM reranker, validation wee
 python scripts/render_readme_tables.py       # regenerate this README from evals/results/
 ```
 
-The final test run peaked at 2,840 MB of memory and took 142 s on a laptop CPU.
+The final test run peaked at 2,840 MB of memory and took 142 s (see Engineering and scale).
 
 ### Demo app (local)
 
@@ -230,7 +259,7 @@ The "Results" page reads only the committed result files. The "Demo" page needs 
 
 ## Testing
 
-**69 tests** (`pytest`): metrics checked against hand-calculated examples, leakage tests for every candidate source and the feature builder,
+**70 tests** (`pytest`): metrics checked against hand-calculated examples, leakage tests for every candidate source and the feature builder,
 split and seed reproducibility, bootstrap properties, two-tower shapes/determinism/learning, reranker ranking and determinism, final-test guards,
 and Streamlit smoke tests that run without any data.
 

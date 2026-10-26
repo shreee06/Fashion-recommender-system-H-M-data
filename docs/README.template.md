@@ -73,6 +73,10 @@ flowchart LR
 
 ### Test week ({{test_range}}, {{n_test}} customers)
 
+![Streamlit Results page: test-week MAP@12 per system with 95% confidence intervals, and the table of all metrics](docs/images/results_test.png)
+
+*Screenshot of the local Streamlit Results page (MAP@12 view), which reads only the committed result files.*
+
 {{table:test}}
 
 Paired differences on the test week (same customers):
@@ -82,6 +86,10 @@ Paired differences on the test week (same customers):
 ### Validation vs test
 
 The same frozen code and models, once on the validation week ({{n_val}} customers) and once on the test week.
+
+![Streamlit Results page: validation vs test MAP@12 per system, with the validation-vs-test table](docs/images/results_validation_vs_test.png)
+
+*Screenshot of the local Streamlit Results page (validation vs test, MAP@12 view), which reads only the committed result files.*
 
 {{table:val_vs_test}}
 
@@ -106,6 +114,27 @@ Top features of the full reranker by share of gain:
 Hyperparameter and design trials that were logged:
 
 {{table:tuning}}
+
+## Engineering and scale
+
+The whole pipeline, from {{n_transactions}} raw transactions to the frozen test evaluation, runs on a single laptop (CPU only, {{machine_ram_mb}} MB of RAM,
+{{machine_cpus}} logical CPUs, {{machine_threads}} threads used). It is a large-dataset-on-one-machine design, not distributed infrastructure. Figures below are copied from the
+real run logs into `evals/results/runtime_memory.json`.
+
+- **Data size and Parquet conversion.** {{n_transactions}} transactions, {{n_customers_all}} customers, {{n_articles_all}} articles. The raw CSVs total {{csv_total}}
+  (transactions alone {{csv_transactions}}); the Parquet files total {{parquet_total}} (transactions {{parquet_transactions}}), a reduction of {{reduction_total}}
+  overall and {{reduction_transactions}} for the transactions table.
+- **Streamed conversion.** `scripts/convert_to_parquet.py` reads the CSV in {{block_mb}} MB blocks with explicit dtypes (article ids stay strings so leading zeros survive)
+  and writes zstd-compressed Parquet block by block, so the raw transactions file is never loaded whole.
+- **Compact in-memory data.** Transactions are held as integer-coded arrays (day, customer code, article code) instead of strings, and only the columns a stage needs are loaded.
+- **Memory-lean feature building.** Candidates and features are built in chunks of {{chunk_customers}} customers; the freeze script writes them into preallocated float32 matrices, builds the LightGBM datasets
+  straight from numpy arrays, and frees intermediates between stages. Reconstructing the reranker (7.7M candidate rows) peaked at {{freeze_peak}} MB.
+- **Memory watchdog.** The freeze and final-test scripts log memory per stage and exit without writing results if available memory drops below about {{guard_mb}} MB.
+  The lowest available memory seen during the recorded runs was {{freeze_min_avail}} MB (freeze) and {{test_min_avail}} MB (final test run).
+- **CPU-only training.** The {{tt_params}}-parameter two-tower model trains at about {{tt_sec_epoch}} s per epoch; the full tuning script ({{tt_script_trials}} training runs covering tuning and the two ablations, plus the
+  evaluation) took about {{tt_script_hours}} hours with a peak of {{tt_script_peak}} MB. The reranker validation script took about {{rr_script_min}} minutes (peak {{rr_script_peak}} MB).
+- **Evaluation cost.** The final test evaluation over {{n_test}} customers took {{test_runtime}} s with a peak of {{test_peak_mb}} MB; the identical dry run on the validation week
+  took {{dry_runtime}} s (peak {{dry_peak}} MB).
 
 ## Limitations
 
@@ -140,7 +169,7 @@ python scripts/run_reranker.py               # LightGBM reranker, validation wee
 python scripts/render_readme_tables.py       # regenerate this README from evals/results/
 ```
 
-The final test run peaked at {{test_peak_mb}} MB of memory and took {{test_runtime}} s on a laptop CPU.
+The final test run peaked at {{test_peak_mb}} MB of memory and took {{test_runtime}} s (see Engineering and scale).
 
 ### Demo app (local)
 

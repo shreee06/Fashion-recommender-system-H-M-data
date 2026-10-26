@@ -118,7 +118,24 @@ def facts():
     trials = tt["trials"]
     at_cap = sum(1 for x in trials if x["best_epoch"] == x["epochs_run"])
     main = tt["final_runs"]["two_tower (chosen)"]
+    rm = load("runtime_memory.json")
+    gb = lambda b: f"{b / 1e9:.2f} GB"
+    mb = lambda b: f"{b / 1e6:.0f} MB"
+    conv, scale = rm["conversion"], rm["data_scale"]["rows"]
     return {
+        "n_transactions": f"{scale['transactions_train']:,}", "n_customers_all": f"{scale['customers']:,}", "n_articles_all": f"{scale['articles']:,}",
+        "csv_transactions": gb(conv["csv_bytes"]["transactions_train"]), "parquet_transactions": mb(conv["parquet_bytes"]["transactions_train"]),
+        "reduction_transactions": f"{conv['transactions_reduction_pct']:.1f}%",
+        "csv_total": gb(conv["total_csv_bytes"]), "parquet_total": mb(conv["total_parquet_bytes"]), "reduction_total": f"{conv['total_reduction_pct']:.1f}%",
+        "block_mb": str(conv["streamed_block_size_mb"]), "machine_ram_mb": f"{rm['machine']['ram_mb']:,}",
+        "machine_cpus": str(rm["machine"]["logical_cpus"]), "machine_threads": str(rm["machine"]["cpu_threads_used_for_training_and_inference"]),
+        "chunk_customers": f"{rm['memory_guard']['feature_build_chunk_customers']:,}", "guard_mb": f"{rm['memory_guard']['abort_below_mem_available_mb']:,}",
+        "freeze_peak": f"{rm['freeze_run']['peak_rss_mb']:,}", "freeze_min_avail": f"{rm['freeze_run']['min_mem_available_mb']:,}",
+        "dry_peak": f"{rm['dry_run_validation']['peak_rss_mb']:,}", "dry_runtime": f"{rm['dry_run_validation']['runtime_s']:.0f}",
+        "test_peak_logged": f"{rm['final_test_run']['peak_rss_mb']:,}", "test_min_avail": f"{rm['final_test_run']['min_mem_available_mb']:,}",
+        "tt_script_peak": f"{rm['two_tower_training_script']['peak_rss_mb']:,}", "tt_script_hours": f"{rm['two_tower_training_script']['runtime_s'] / 3600:.1f}",
+        "tt_script_trials": str(rm["two_tower_training_script"]["trials"]),
+        "rr_script_peak": f"{rm['reranker_validation_script']['peak_rss_mb']:,}", "rr_script_min": f"{rm['reranker_validation_script']['runtime_s'] / 60:.0f}",
         "n_test": f"{t['n_evaluated']:,}", "n_test_cold": f"{t['n_cold']:,}", "cold_test": f"{t['cold_start_share']:.2%}",
         "n_val": f"{val['n_evaluated']:,}", "cold_val": f"{val['cold_start_share']:.2%}",
         "catalogue_size": f"{tt['population']['catalogue_size']:,}",
